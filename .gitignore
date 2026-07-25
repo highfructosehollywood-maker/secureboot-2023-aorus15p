@@ -1,0 +1,19 @@
+# Never commit vendor firmware or extracted BIOS modules
+*.rom
+*.fd
+*.fv
+*.ffs
+*.pe
+*.bin.orig
+extracted/
+firmware/
+*.exe
+# SREP build workspace (edk2 checkout lives in a docker volume, this is just output).
+# No third-party binary is committed to this repo - everyone builds their own.
+srep/build/work/
+srep-usb-*.zip
+*.efi
+# OS cruft
+Thumbs.db
+.DS_Store
+*.Zone.Identifier

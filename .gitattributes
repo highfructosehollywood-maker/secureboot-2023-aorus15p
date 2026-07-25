@@ -1,0 +1,15 @@
+# These are read inside the Linux build container - CRLF would break them
+# (`bash: build.sh: cannot execute`), which is easy to hit on a Windows clone.
+srep/build/build.sh      text eol=lf
+srep/build/patch-srep.py text eol=lf
+srep/build/Dockerfile    text eol=lf
+
+# The stick-side shell script is generated with CRLF by build.sh; keep the
+# template LF so that conversion stays a single step.
+srep/usb/startup.nsh     text eol=lf
+
+# Never touch binaries
+*.zip  binary
+*.efi  binary
+*.bin  binary
+*.der  binary

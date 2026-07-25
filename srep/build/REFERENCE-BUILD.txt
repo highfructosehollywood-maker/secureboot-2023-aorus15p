@@ -1,0 +1,26 @@
+SREP USB build
+  built            : 2026-07-25 13:24:34 UTC
+  toolchain        : GCC5 / RELEASE / X64 (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0)
+  edk2             : edk2-stable202502 @ fbe0805b2091393406952e84724188f8c1941837
+  SREP             : 0.2.3 @ 11d0b7d835b67b5c867455e072be2ba1529487d6
+  SREP repo        : https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS.git
+  local changes    : srep-0.2.3-driver.diff (see srep/build/patch-srep.py)
+  shell variant    : Shell_EA4BB293-2D7F-4456-A681-1F22F42CD0BC.efi
+
+Rebuild with: srep\build\Build-SrepUsb.ps1 -EdkTag edk2-stable202502 -SrepTag 0.2.3
+Note: rebuilding with the same tags in this container reproduces these hashes
+(paths are fixed and edk2/GCC5 stamps a deterministic PE timestamp). A build
+with a different edk2 tag, compiler version or checkout path will behave the
+same but hash differently.
+
+Expected SHA-256 of a build with exactly these tags
+==================================================
+
+32c471e30d1dc8cc23b210674c7d7614baa89283c03951dc00d8f3f07e1a7cf2  EFI/BOOT/BOOTX64.EFI
+dd7d4d222e08f4dd354e051e9c52b3236e7b4a5a7b2732cde1354305d65dcfd1  LICENSES.txt
+e2e67b773a28ff0479678173494b435f32894543bd74a28e6c60618477397817  Oniguruma.efi
+fe91ea854edf67cc1a54b470cc710e8b2d023c5b8b92ff902baf5e479fd0fe3c  README.txt
+cd2cb87912661ef7dbcd118528c6c176f6e6ee46921162eb837fd39c54627456  SREP_Config.cfg
+ce2888d4eaf056d0eb8b97a5b40bb6674dcfafd49cbb33ab1437722bcb49be45  srep-0.2.3-driver.efi
+a2ec40cfb66143ebf204999bd4b6a5652c1c5aa93e2171b7ed167991ed119b3d  startup.nsh
+c725cfa99df260f2df9731c653d057b812bcd5ad7327d004589a9fa3aaef9e24  srep-usb-0.2.3.zip
