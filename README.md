@@ -115,7 +115,8 @@ newest DBX you can always re-fetch from upstream.
   ([secureboot_objects](https://github.com/microsoft/secureboot_objects),
   BSD-2-Clause-Patent).
 - **SmokelessCPUv2** — **SREP** (Smokeless Runtime EFI Patcher), the tool that unhides
-  BIOS forms, and **Maxinator500** for the maintained fork that added most of what this
+  BIOS forms, and **[Maxinator500](https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS)**
+  for the maintained fork that added most of what this
   repository relies on. The original author's repository is gone (account deleted in
   2022); `srep/build/` builds the binary from
   [our fork](https://github.com/djwinston/SmokelessRuntimeEFIPatcher) of that fork — see
@@ -124,8 +125,10 @@ newest DBX you can always re-fetch from upstream.
   (BSD-2-Clause-Patent).
 - **Sweet_Kitten** — the original AORUS 15P SREP config that this repo's
   `SREP_Config.cfg` extends (adds the Security page).
-- **u/Training-Honey9821** and others in the r/gigabyte thread — for diagnosing the
-  2011/2023 boot-manager mismatch that pointed everyone the right way.
+- **[u/Training-Honey9821](https://www.reddit.com/user/Training-Honey9821/)** — for
+  posting the [r/gigabyte thread](https://www.reddit.com/r/gigabyte/comments/1ubzexr/aorus_15p_xd_secure_boot_help/)
+  this repository grew out of, and everyone in it who worked out the 2011/2023
+  boot-manager mismatch that pointed the way.
 
 If you were involved and want different credit (or none), open an issue.
 
