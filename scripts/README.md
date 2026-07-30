@@ -70,8 +70,20 @@ to load SREP.
 
 ### Notes on the firmware-variable API
 
-These scripts call `Get/SetFirmwareEnvironmentVariableExW` and enable
-`SeSystemEnvironmentPrivilege` in the process token. They require the OS to be booted
-in **UEFI** mode (they are no-ops on legacy BIOS). Deleting a variable is a zero-size
-`Set` with the variable's real attributes — which is why attributes are read before
-deletion.
+`UefiVars.ps1` holds this layer once and is **dot-sourced** by `Test-UefiVarAccess.ps1`
+and `Manage-UefiDrivers.ps1` — don't run it directly. It calls
+`Get/SetFirmwareEnvironmentVariableExW` and enables `SeSystemEnvironmentPrivilege` in the
+process token, so it requires the OS to be booted in **UEFI** mode (the reads are no-ops
+on legacy BIOS). Deleting a variable is a zero-size `Set` with the variable's real
+attributes — which is why attributes are read before deletion.
+
+Reads return the exact Win32 error alongside the bytes, so callers can tell "the variable
+does not exist" (203) apart from "access denied" (5) or "not booted in UEFI mode" (1)
+instead of treating every empty read as absence.
+
+One PowerShell trap to know if you edit these scripts: a read that returns a **single `0x00`
+byte** — which is exactly `SetupMode` once keys are enrolled — arrives as the one-element
+array `@(0)`, and PowerShell unwraps that to the falsy scalar `0`. So callers test
+`$null -ne $result.Bytes`, never `if ($result.Bytes)`; the truthy form reports the most
+important variable in this repo as unreadable. `Test-UefiVarAccess.ps1` also prints
+`SetupMode` through `Get-SecureBootUEFI` as an independent cross-check.

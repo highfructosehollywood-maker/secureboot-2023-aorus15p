@@ -27,6 +27,8 @@
 # Run in an ELEVATED PowerShell.  Suspend BitLocker first if it is enabled.
 # ---------------------------------------------------------------------------
 
+#Requires -RunAsAdministrator
+
 [CmdletBinding()]
 param(
     [switch]$IncludeDbx
@@ -43,32 +45,50 @@ $certs   = Join-Path $keys 'certs'
 $time    = '2011-11-01T00:00:00Z'
 $msOwner = [Guid]'77fa9abd-0359-4d32-bd60-28f4e78f784b'   # Microsoft SignatureOwner
 
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Error 'Run this script from an elevated (Administrator) PowerShell.'
-}
-
 # --- 1. Require UEFI boot + genuine Setup Mode (read SetupMode explicitly) ---
+# PEFirmwareType is simply absent on some Windows installs (verified on Win11 26200), so
+# only an explicit 1 = legacy BIOS is a hard stop. The SetupMode read below is the real
+# gate anyway: Get-SecureBootUEFI cannot succeed on a machine that is not UEFI-booted.
 $fw = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control' -Name PEFirmwareType -ErrorAction SilentlyContinue).PEFirmwareType
-if ($fw -ne 2) {
-    Write-Error "System does not appear to be booted in UEFI mode (PEFirmwareType=$fw, expected 2). Secure Boot variable writes will not work."
+if ($fw -eq 1) {
+    Write-Error 'System is booted in legacy BIOS mode (PEFirmwareType=1). Secure Boot variable writes will not work.'
 }
-$setupMode = $null
 try { $setupMode = (Get-SecureBootUEFI -Name SetupMode).bytes[0] } catch {
     Write-Error "Could not read the SetupMode variable ($($_.Exception.Message)). Aborting rather than guessing the state."
 }
 if ($setupMode -ne 1) {
-    Write-Error "SetupMode = $setupMode (expected 1). The system is NOT in Setup Mode. Erase Secure Boot keys in the BIOS first if you intend to re-enroll. Nothing was written."
+    # Deliberately not Write-Error. Landing here almost always means the keys are already
+    # enrolled - this script's own goal state - so a red error would report a healthy
+    # machine as a failure. State the situation, say plainly that nothing was written, and
+    # point at whatever step is actually left.
+    $sb = $null
+    try { $sb = Confirm-SecureBootUEFI } catch { }
+    Write-Host "[i] SetupMode = $setupMode - not in Setup Mode, so there are no keys to enroll." -ForegroundColor Cyan
+    Write-Host '    NOTHING WAS WRITTEN. A key set is already present in the firmware.' -ForegroundColor Cyan
+    if ($sb -eq $true) {
+        Write-Host '    Secure Boot is ON as well - this scenario is complete. If Windows still warns' -ForegroundColor Green
+        Write-Host '    about certificates, that is Scenario A: docs\scenario-a-secureboot-on-warning.md' -ForegroundColor Green
+    } else {
+        Write-Host '    Secure Boot is still OFF, but that is a BIOS toggle rather than an enrollment:' -ForegroundColor Yellow
+        Write-Host '    continue with docs\scenario-b-stuck-setup-mode.md, Step 3.' -ForegroundColor Yellow
+    }
+    Write-Host '    To re-enroll on purpose, erase the Secure Boot keys in the BIOS first' -ForegroundColor DarkGray
+    Write-Host '    (that is what returns SetupMode = 1), then run this again.' -ForegroundColor DarkGray
+    exit 0
 }
 Write-Host '[OK] UEFI mode confirmed; system is in Setup Mode (SetupMode=1).' -ForegroundColor Green
 
 # --- 2. BitLocker guard ---
-$blv = Get-BitLockerVolume -MountPoint 'C:' -ErrorAction SilentlyContinue
+# The system drive is the one whose TPM measurements the key writes disturb; it is not
+# always C: (Windows-to-Go, or a recovery-environment boot).
+$sysDrive = $env:SystemDrive
+$blv = Get-BitLockerVolume -MountPoint $sysDrive -ErrorAction SilentlyContinue
 if ($blv -and $blv.ProtectionStatus -eq 'On') {
-    Write-Host '[!] BitLocker is ON for C: - suspending for 1 reboot...' -ForegroundColor Yellow
-    Suspend-BitLocker -MountPoint 'C:' -RebootCount 1 | Out-Null
+    Write-Host "[!] BitLocker is ON for $sysDrive - suspending for 1 reboot..." -ForegroundColor Yellow
+    Suspend-BitLocker -MountPoint $sysDrive -RebootCount 1 | Out-Null
     Write-Host '[OK] BitLocker suspended.' -ForegroundColor Green
 } else {
-    Write-Host '[OK] BitLocker not active on C: (or not present).' -ForegroundColor Green
+    Write-Host "[OK] BitLocker not active on $sysDrive (or not present)." -ForegroundColor Green
 }
 
 # --- 3. Enrollment helper: raw ESL first, cert-based fallback ---

@@ -36,7 +36,7 @@ Run the diagnostics script (read-only, changes nothing):
 
 ```powershell
 # from an elevated PowerShell, in the repo's scripts\ folder
-Unblock-File .\Test-UefiVarAccess.ps1
+Get-ChildItem .\*.ps1 | Unblock-File     # UefiVars.ps1 is dot-sourced, so unblock it too
 .\Test-UefiVarAccess.ps1
 ```
 
@@ -117,9 +117,13 @@ already exposed).
    `Driver####` entry. Then reboot **with the stick still in** — the firmware loads SREP
    as a driver, it patches AMITSE in RAM and writes `SREP.log` to the stick. (Driver mode
    is required: the RAM patch has to happen in the same boot in which you open Setup.)
-3. In the BIOS, scroll the tab bar to the **right** (there's a `▶` marker). A second
+3. **Press <kbd>F2</kbd> while SREP's output is on screen.** Patching does not open the
+   BIOS for you: let the log scroll past and the machine boots Windows, taking the patch
+   with it, and you need another reboot. Not during the `Press L to write a log`
+   countdown at the start, though — SREP reads a key there itself and swallows it.
+4. In the BIOS, scroll the tab bar to the **right** (there's a `▶` marker). A second
    **Security** tab appears after the extra Advanced/Chipset tabs.
-4. Open it → **Secure Boot** submenu.
+5. Open it → **Secure Boot** submenu.
 
 ## Step 4 — Enable Secure Boot
 
@@ -176,16 +180,21 @@ named like `srep(...).efi`), each boot can add another one. Duplicates are harml
 but you can tidy them:
 
 ```powershell
-Unblock-File .\Manage-UefiDrivers.ps1
+Get-ChildItem .\*.ps1 | Unblock-File           # Manage-UefiDrivers dot-sources UefiVars.ps1
 .\Manage-UefiDrivers.ps1                       # list only (read-only)
 .\Manage-UefiDrivers.ps1 -Remove 1             # delete a duplicate (prompts to confirm)
 .\Manage-UefiDrivers.ps1 -Remove 1 -Confirm:$false   # delete without prompting
 ```
 
-**If you rely on those `Driver####` entries to auto-load SREP, keep at least one.**
-If instead your stick boots SREP directly (`EFI/BOOT/BOOTX64.EFI`, chosen from the
-boot menu — the method in [srep/README.md](../srep/README.md)), the `Driver####`
-entries aren't needed to load SREP and can be removed entirely.
+**With the stick this repo builds, keep at least one entry.** That layout loads SREP
+*from* the `Driver####` entry during BDS; `EFI/BOOT/BOOTX64.EFI` on it is only the UEFI
+Shell that created the entry in the first place (see
+[srep/README.md](../srep/README.md)). Delete every entry and SREP stops loading until
+you boot the stick and let `startup.nsh` register it again.
+
+Removing all of them is only safe with an *application* build of SREP that you launch by
+hand from a shell — not the layout produced here, and not one that can patch AMITSE in
+the same boot in which you open Setup.
 
 ---
 

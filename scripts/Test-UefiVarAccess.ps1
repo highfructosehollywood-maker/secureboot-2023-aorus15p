@@ -1,97 +1,68 @@
 # Test-UefiVarAccess.ps1  - diagnostics only, changes nothing.
-# Run as Administrator.
+# Run as Administrator. The firmware-variable API lives in UefiVars.ps1, shared with
+# Manage-UefiDrivers.ps1.
 
 $ErrorActionPreference = 'Stop'
-$EFI_GLOBAL = '{8be4df61-93ca-11d2-aa0d-00e098032b8c}'
-
-if (-not ('UefiDiag.NV2' -as [type])) {
-Add-Type -Namespace UefiDiag -Name NV2 -MemberDefinition @'
-[DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
-public static extern uint GetFirmwareEnvironmentVariableExW(string lpName, string lpGuid, byte[] pBuffer, uint nSize, out uint pdwAttributes);
-
-[DllImport("advapi32.dll", SetLastError=true)]
-public static extern bool OpenProcessToken(IntPtr h, uint acc, out IntPtr tok);
-
-[DllImport("advapi32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
-public static extern bool LookupPrivilegeValueW(string host, string name, out long luid);
-
-[StructLayout(LayoutKind.Sequential, Pack=4)]
-public struct TP { public uint Count; public long Luid; public uint Attr; }
-
-[DllImport("advapi32.dll", SetLastError=true)]
-public static extern bool AdjustTokenPrivileges(IntPtr tok, bool dis, ref TP newst, uint len, IntPtr prev, IntPtr ret);
-
-[DllImport("kernel32.dll")]
-public static extern IntPtr GetCurrentProcess();
-'@
-}
-
-$ErrTable = @{
-    0    = 'SUCCESS'
-    1    = 'ERROR_INVALID_FUNCTION (system not booted in UEFI mode?)'
-    2    = 'ERROR_FILE_NOT_FOUND'
-    5    = 'ERROR_ACCESS_DENIED'
-    87   = 'ERROR_INVALID_PARAMETER'
-    122  = 'ERROR_INSUFFICIENT_BUFFER'
-    203  = 'ERROR_ENVVAR_NOT_FOUND (variable really does not exist)'
-    1300 = 'ERROR_NOT_ALL_ASSIGNED (privilege NOT actually granted)'
-    1314 = 'ERROR_PRIVILEGE_NOT_HELD'
-}
-function E($c) { if ($ErrTable.ContainsKey($c)) { "$c = $($ErrTable[$c])" } else { "$c" } }
+. (Join-Path $PSScriptRoot 'UefiVars.ps1')
 
 # --- 0. context ---
-$admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-"Administrator      : $admin"
+"Administrator      : $(Test-IsElevated)"
 "PSVersion          : $($PSVersionTable.PSVersion)"
 "Process bitness    : $([IntPtr]::Size * 8)-bit"
-$fw = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control' -Name PEFirmwareType -ErrorAction SilentlyContinue).PEFirmwareType
-"PEFirmwareType     : $fw  (2 = UEFI, 1 = legacy BIOS)"
+$fwType = Get-FirmwareType   # absent on some installs, hence the explicit wording
+"PEFirmwareType     : $(if ($null -ne $fwType) { "$fwType  (2 = UEFI, 1 = legacy BIOS)" } else { '<value not present - tells us nothing either way>' })"
 try { "Confirm-SecureBootUEFI : $(Confirm-SecureBootUEFI)" } catch { "Confirm-SecureBootUEFI : (error: $($_.Exception.Message))" }
+# Scenario B hinges on SetupMode, and the supported cmdlet returns the byte even when the
+# raw API below cannot (all-zero values - see UefiVars.ps1). Ask both.
+try { "Get-SecureBootUEFI SetupMode : $((Get-SecureBootUEFI -Name SetupMode).Bytes[0])  (1 = Setup Mode, 0 = keys enrolled)" }
+catch { "Get-SecureBootUEFI SetupMode : (error: $($_.Exception.Message))" }
 
 # --- 1. privilege, checked properly ---
-$tok = [IntPtr]::Zero
-$ok = [UefiDiag.NV2]::OpenProcessToken([UefiDiag.NV2]::GetCurrentProcess(), 0x28, [ref]$tok)
-"OpenProcessToken   : $ok"
-$luid = 0L
-$ok = [UefiDiag.NV2]::LookupPrivilegeValueW($null, 'SeSystemEnvironmentPrivilege', [ref]$luid)
-"LookupPrivilege    : $ok  (luid=$luid)"
-$tp = New-Object UefiDiag.NV2+TP
-$tp.Count = 1; $tp.Luid = $luid; $tp.Attr = 2
-$ok = [UefiDiag.NV2]::AdjustTokenPrivileges($tok, $false, [ref]$tp, 0, [IntPtr]::Zero, [IntPtr]::Zero)
-$le = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-"AdjustTokenPriv    : returned=$ok  lastError=$(E $le)"
-if ($le -eq 1300) {
+$priv = Enable-SystemEnvironmentPrivilege
+"OpenProcessToken   : $($priv.TokenOpened)"
+"LookupPrivilege    : $($priv.LuidFound)  (luid=$($priv.Luid))"
+"AdjustTokenPriv    : returned=$($priv.Adjusted)  lastError=$(Format-Win32Error $priv.LastError)"
+if ($priv.LastError -eq 1300) {
     Write-Host 'PRIVILEGE WAS NOT GRANTED - the reads below will fail.' -ForegroundColor Red
 }
 
 # --- 2. read several variables, report exact errors ---
-function Try-Read($name) {
-    $buf = New-Object byte[] 4096
-    $attr = 0
-    [Runtime.InteropServices.Marshal]::GetLastWin32Error() | Out-Null
-    $n = [UefiDiag.NV2]::GetFirmwareEnvironmentVariableExW($name, $EFI_GLOBAL, $buf, $buf.Length, [ref]$attr)
-    $lastErr = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-    if ($n -gt 0) {
-        $hex = (($buf[0..([Math]::Min($n,32)-1)]) | ForEach-Object { '{0:x2}' -f $_ }) -join ' '
-        "{0,-14} : {1,4} bytes  attr=0x{2:X}  [{3}]" -f $name, $n, $attr, $hex
-    } else {
-        "{0,-14} : FAILED   {1}" -f $name, (E $lastErr)
-    }
+function Format-VarResult($v) {
+    # `$null -ne`, not truthiness: a one-byte 0x00 value (SetupMode with keys enrolled)
+    # unwraps to the falsy scalar 0 - see the note in UefiVars.ps1.
+    if (Test-UefiVarMissing $v) { return "{0,-14} : not present" -f $v.Name }
+    if ($null -eq $v.Bytes) { return "{0,-14} : FAILED   {1}" -f $v.Name, (Format-Win32Error $v.LastError) }
+    $hex = (($v.Bytes[0..([Math]::Min($v.Bytes.Length, 32) - 1)]) | ForEach-Object { '{0:x2}' -f $_ }) -join ' '
+    "{0,-14} : {1,4} bytes  attr=0x{2:X}  [{3}]" -f $v.Name, $v.Bytes.Length, $v.Attributes, $hex
 }
 
 ""
 "--- control reads (BootOrder/BootCurrent should always work) ---"
-Try-Read 'BootOrder'
-Try-Read 'BootCurrent'
-Try-Read 'SetupMode'
-Try-Read 'SecureBoot'
+'BootOrder', 'BootCurrent', 'SetupMode', 'SecureBoot' | ForEach-Object { Format-VarResult (Get-UefiVar $_) }
+
 ""
 "--- what we actually care about ---"
-Try-Read 'DriverOrder'
-Try-Read 'Driver0000'
-Try-Read 'Driver0001'
-Try-Read 'Driver0002'
+# The Driver#### names come from DriverOrder rather than a fixed Driver0000..0002 probe:
+# bcfg allocates the next free index, so repeated SREP boots land well past 0002.
+$ord = Get-UefiVar 'DriverOrder'
+Format-VarResult $ord
+if ($null -ne $ord.Bytes) {
+    foreach ($id in ConvertFrom-UefiIdList $ord.Bytes) {
+        $v = Get-UefiVar (Get-DriverVarName $id)
+        Format-VarResult $v
+        if ($null -ne $v.Bytes) {
+            "                 description = '{0}'" -f (Get-EfiLoadOptionDescription $v.Bytes)
+        }
+    }
+}
+
 ""
-"--- cross-check via bcdedit (independent of this API) ---"
-try { (bcdedit /enum firmware 2>&1 | Select-String -Pattern 'srep|identifier|description' | Select-Object -First 40) }
-catch { "bcdedit failed: $_" }
+"--- boot path per BCD (context only - Driver#### entries never appear here) ---"
+# Windows' BCD firmware store carries Boot#### entries, not Driver####, so this cannot
+# corroborate the driver list above - do not go looking for 'srep' in it. What it is good
+# for is the other half of the picture: which boot manager the firmware starts and from
+# where. Printed unfiltered on purpose; filtering on English words like 'identifier'
+# silently produced nothing on a localised Windows.
+# The {braces} are bcdedit's own aliases for well-known BCD GUIDs, not unsubstituted
+# placeholders - add /v to see the raw GUIDs instead.
+try { bcdedit /enum firmware 2>&1 } catch { "bcdedit failed: $_" }

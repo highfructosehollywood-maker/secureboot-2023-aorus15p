@@ -33,5 +33,5 @@ No third-party executable is distributed here. srep/build/ builds the UEFI Shell
 and RegularExpressionDxe from TianoCore EDK2 (BSD-2-Clause-Patent) and SREP
 (Smokeless Runtime EFI Patcher) from its author's sources; those builds happen on
 your machine and each component keeps its own terms. SREP itself carries no
-licence statement at all - see srep/usb/THIRD-PARTY.md before redistributing
+licence statement at all - see srep/build/THIRD-PARTY.md before redistributing
 anything you build with it.

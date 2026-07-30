@@ -81,17 +81,18 @@ keys/                                  Microsoft default key set (BSD-2-Clause-P
   DB.bin KEK.bin PK.bin DBX.bin        raw EFI_SIGNATURE_LIST payloads
   WindowsOEMDevicesPK.der              PK as a plain cert (for BIOS Key Management)
   certs/                               individual .der certs (fallback enrollment path)
+  License.txt                          Microsoft's licence, kept verbatim with the files
 scripts/
   Enroll-SecureBootKeys.ps1            Scenario B: enroll 2011+2023 from Setup Mode
   Verify-Keys.ps1                      Check SHA-256 of the key files (run before enrolling)
   Test-UefiVarAccess.ps1               Diagnostics: read SecureBoot/SetupMode/keys
   Manage-UefiDrivers.ps1               Clean up leftover SREP Driver#### NVRAM entries
+  UefiVars.ps1                         Shared firmware-variable helpers (dot-sourced, not run)
 srep/
   SREP_Config.cfg                      Unhide the full Security page (AORUS 15P XD FB0A only)
   build/                               Build the stick contents from source (Docker + EDK2)
     Build-SrepUsb.ps1                  One command: builds Shell + SREP driver + regex driver
     Dockerfile  build.sh               Build container (Ubuntu 22.04 + edk2 deps) and its script
-    patch-srep.py                      The UEFI_DRIVER / English / GCC-flags source patch
     templates/                         startup.nsh + stick README that go into the archive
     REFERENCE-BUILD.txt                Pinned commits + expected SHA-256 of a correct build
     THIRD-PARTY.md                     Provenance and licence of everything the build produces
@@ -114,10 +115,11 @@ newest DBX you can always re-fetch from upstream.
   ([secureboot_objects](https://github.com/microsoft/secureboot_objects),
   BSD-2-Clause-Patent).
 - **SmokelessCPUv2** — **SREP** (Smokeless Runtime EFI Patcher), the tool that unhides
-  BIOS forms, and **Maxinator500** for the maintained fork we build from. The author's
-  own repository is gone (account deleted in 2022); `srep/build/` rebuilds the binary
-  from the fork's sources — see [srep/build/THIRD-PARTY.md](srep/build/THIRD-PARTY.md) for
-  the licence situation.
+  BIOS forms, and **Maxinator500** for the maintained fork that added most of what this
+  repository relies on. The original author's repository is gone (account deleted in
+  2022); `srep/build/` builds the binary from
+  [our fork](https://github.com/djwinston/SmokelessRuntimeEFIPatcher) of that fork — see
+  [srep/build/THIRD-PARTY.md](srep/build/THIRD-PARTY.md) for the licence situation.
 - **TianoCore/EDK2** — the UEFI Shell and `RegularExpressionDxe` on the stick
   (BSD-2-Clause-Patent).
 - **Sweet_Kitten** — the original AORUS 15P SREP config that this repo's

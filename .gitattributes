@@ -6,7 +6,7 @@ srep/build/Dockerfile    text eol=lf
 
 # The stick-side shell script is generated with CRLF by build.sh; keep the
 # template LF so that conversion stays a single step.
-srep/usb/startup.nsh     text eol=lf
+srep/build/templates/startup.nsh text eol=lf
 
 # Never touch binaries
 *.zip  binary

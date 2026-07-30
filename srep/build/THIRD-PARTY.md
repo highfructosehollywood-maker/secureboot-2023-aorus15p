@@ -8,7 +8,7 @@ Expected hashes of a build with the pinned tags: [`REFERENCE-BUILD.txt`](REFEREN
 
 | File the build puts on the stick | Built from | Version | Licence |
 |---|---|---|---|
-| `srep-0.2.3-driver.efi` | [Maxinator500/SmokelessRuntimeEFIPatcher-RUS](https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS) + [`patch-srep.py`](patch-srep.py) | tag `0.2.3` | **none stated** — see below |
+| `srep-0.2.3b-driver.efi` | [djwinston/SmokelessRuntimeEFIPatcher](https://github.com/djwinston/SmokelessRuntimeEFIPatcher), our fork of [Maxinator500/SmokelessRuntimeEFIPatcher-RUS](https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS) `0.2.3` | tag `0.2.3b` | **none stated** — see below |
 | `EFI/BOOT/BOOTX64.EFI` | [tianocore/edk2](https://github.com/tianocore/edk2) `ShellPkg/ShellPkg.dsc` | tag `edk2-stable202502` | BSD-2-Clause-Patent |
 | `Oniguruma.efi` | tianocore/edk2 `MdeModulePkg/Universal/RegularExpressionDxe` | tag `edk2-stable202502` | BSD-2-Clause-Patent (bundles [oniguruma](https://github.com/kkos/oniguruma), BSD-2-Clause) |
 | `SREP_Config.cfg` | this repository, extending Sweet_Kitten's AORUS 15P config | — | MIT (this repo) |
@@ -26,37 +26,49 @@ SREP was written by **SmokelessCPUv2**, announced on the Win-Raid forum in Augus
 The author deleted their GitHub account in December 2022; the original repository
 `SmokelessCPUv2/SmokelessRuntimeEFIPatcher` is gone. What remains publicly:
 
-- a source mirror: [hboyd2003/SmokelessRuntimeEFIPatcher](https://github.com/hboyd2003/SmokelessRuntimeEFIPatcher)
-  (last upstream commit 16 Dec 2022, version `0.1.4c`);
-- the maintained fork we build: [Maxinator500/SmokelessRuntimeEFIPatcher-RUS](https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS).
+- source mirrors of the original: [hboyd2003](https://github.com/hboyd2003/SmokelessRuntimeEFIPatcher)
+  and [barlowhaydnb](https://github.com/barlowhaydnb/SmokelessRuntimeEFIPatcher) —
+  identical trees, last upstream commit 16 Dec 2022, version `0.1.4c`, 921 lines;
+- the maintained fork: [Maxinator500/SmokelessRuntimeEFIPatcher-RUS](https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS),
+  about +3900 lines over the original — `FastPatch`, `HandleIndex`, `NonamePE`/`NonameTE`,
+  `UpdateHiiPackage`, `HiiForceLoad`, `SendForm`, `Skip`, regex patterns and more, plus a
+  Russian localisation. `SREP_Config.cfg` in this repository uses `Op FastPatch`, which is
+  this fork's name for the original `Op Patch` behaviour;
+- **what we build**: [djwinston/SmokelessRuntimeEFIPatcher](https://github.com/djwinston/SmokelessRuntimeEFIPatcher),
+  a GitHub fork of the above, branched at tag `0.2.3` (tag `0.2.3b`).
 
-**Neither carries a `LICENSE` file, and the sources have no licence headers.** Strictly
-speaking that means no licence was granted — neither to modify the sources nor to
-redistribute a build. That is exactly why this repository stops at the build recipe: it
-never hands out a compiled SREP, and the patch it applies stays as a script of its own
-rather than a copy of upstream code. Building it for your own machine is the normal
-"personal use" case; if you plan to pass the resulting stick or `.efi` on to other people,
-that redistribution is on you, and asking the fork's maintainer first is the polite path.
+**None of them carries a `LICENSE` file, and the sources have no licence headers.**
+Strictly speaking that means no licence was granted — neither to modify the sources nor to
+redistribute a build. Our fork therefore carries no licence either, and says so in its
+README: forking a public repository is what GitHub's own terms allow, but they do not turn
+unlicensed code into licensed code. This repository still ships no compiled SREP. Building
+it for your own machine is the normal "personal use" case; if you plan to pass the
+resulting stick or `.efi` on to other people, that redistribution is on you, and asking the
+fork's maintainer first is the polite path.
 
 One exception: `SmokelessRuntimeEFIPatcher.dec` in the fork carries
 `SPDX-License-Identifier: MIT`, copyright 2021 Konstantin Aladyshev — that file is
 EDK2 boilerplate and is not part of the shipped binary's logic.
 
-## Modifications we apply before building
+## What our fork changes
 
-See [`patch-srep.py`](patch-srep.py) for the code; every build also writes
-`srep-0.2.3-driver.diff` into `work/` with the exact diff it applied:
+**The build patches nothing** — it clones tag `0.2.3b` and compiles it as-is, and refuses
+to run if the checkout is dirty. Relative to upstream `0.2.3` the tag is a `UEFI_DRIVER`
+build with an English UI, GCC `[BuildOptions]` (upstream ships MSVC flags only), and the
+memory-safety fixes from an audit of the sources: wrapping bounds in both pattern-scan
+loops, an unallocated match-offset array written to through a null pointer, `FreePool` on a
+firmware-owned protocol structure, a `StrCatS` whose size argument was given in bytes where
+the API counts characters, and unchecked allocations. `git log 0.2.3..0.2.3b` has the
+reasoning for each; the fork's README covers the ones a reader is most likely to hit.
 
-1. `MODULE_TYPE` → `UEFI_DRIVER` and the entry-point library class swapped, so the
-   image can be loaded via a `Driver####` NVRAM entry (upstream ships both variants as
-   a commented-out pair);
-2. default UI language `ru-RU` → `en-GB`, because upstream only switches to English via
-   a Shell command-line argument, which a driver never receives;
-3. GCC build flags in `[BuildOptions]`, because upstream is MSVC-only: two `-Wno-` flags
-   for warnings edk2 turns into errors, plus `-fcommon` and
-   `-Wl,--allow-multiple-definition` for globals defined in shared headers.
+Nothing changes in the config format or in how a matched pattern is applied.
 
-No functional change to how patterns are matched or applied.
+One further change is made to the *build* rather than to the sources: `build.sh` pins edk2's
+stack-cookie value (`0x5352455053544B43`) instead of letting `build.py` seed it randomly per
+platform. Without that pin the compiled driver differs by 8 bytes in `.data` on every
+recompile, and no reference hash could be published. It affects the emitted binary, so it is
+listed here for anyone comparing hashes; see the "On hashes" section of
+[`../README.md`](../README.md) for the reasoning.
 
 ## BSD-2-Clause-Patent (EDK2 components)
 

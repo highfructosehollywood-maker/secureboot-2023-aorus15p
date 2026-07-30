@@ -1,26 +1,51 @@
 SREP USB build
-  built            : 2026-07-25 13:24:34 UTC
+  built            : 2026-07-29 13:42:56 UTC
   toolchain        : GCC5 / RELEASE / X64 (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0)
   edk2             : edk2-stable202502 @ fbe0805b2091393406952e84724188f8c1941837
-  SREP             : 0.2.3 @ 11d0b7d835b67b5c867455e072be2ba1529487d6
-  SREP repo        : https://github.com/Maxinator500/SmokelessRuntimeEFIPatcher-RUS.git
-  local changes    : srep-0.2.3-driver.diff (see srep/build/patch-srep.py)
+  SREP             : 0.2.3b @ cda41d20f7d79dab681639a6b3629da7e6f29c80
+  SREP repo        : https://github.com/djwinston/SmokelessRuntimeEFIPatcher.git
+  local changes    : none - built unmodified from the tag above
   shell variant    : Shell_EA4BB293-2D7F-4456-A681-1F22F42CD0BC.efi
+  stack cookie     : pinned to 0x5352455053544B43 (see build.sh - required for the hashes)
 
-Rebuild with: srep\build\Build-SrepUsb.ps1 -EdkTag edk2-stable202502 -SrepTag 0.2.3
-Note: rebuilding with the same tags in this container reproduces these hashes
-(paths are fixed and edk2/GCC5 stamps a deterministic PE timestamp). A build
-with a different edk2 tag, compiler version or checkout path will behave the
-same but hash differently.
+Rebuild with: srep\build\Build-SrepUsb.ps1 -EdkTag edk2-stable202502 -SrepTag 0.2.3b
+Note: rebuilding with the same tags in this container reproduces these hashes. Three
+things make that possible: fixed checkout paths, edk2/GCC5's zeroed PE timestamp, and
+the pinned stack cookie above (without the pin edk2 seeds it randomly and the SREP image
+differs by 8 bytes on every recompile). A build with a different edk2 tag, compiler
+version or checkout path behaves the same way but hashes differently.
 
 Expected SHA-256 of a build with exactly these tags
 ==================================================
 
 32c471e30d1dc8cc23b210674c7d7614baa89283c03951dc00d8f3f07e1a7cf2  EFI/BOOT/BOOTX64.EFI
-dd7d4d222e08f4dd354e051e9c52b3236e7b4a5a7b2732cde1354305d65dcfd1  LICENSES.txt
+24528a6fcc5dfec756b2ae9d4e9d2eaf03e7201bf1bac535581a39829cb8d6bc  LICENSES.txt
 e2e67b773a28ff0479678173494b435f32894543bd74a28e6c60618477397817  Oniguruma.efi
 fe91ea854edf67cc1a54b470cc710e8b2d023c5b8b92ff902baf5e479fd0fe3c  README.txt
 cd2cb87912661ef7dbcd118528c6c176f6e6ee46921162eb837fd39c54627456  SREP_Config.cfg
-ce2888d4eaf056d0eb8b97a5b40bb6674dcfafd49cbb33ab1437722bcb49be45  srep-0.2.3-driver.efi
-a2ec40cfb66143ebf204999bd4b6a5652c1c5aa93e2171b7ed167991ed119b3d  startup.nsh
-c725cfa99df260f2df9731c653d057b812bcd5ad7327d004589a9fa3aaef9e24  srep-usb-0.2.3.zip
+d0538b985f4146b87b7f2d548e5a06d491eb4c3b83ddfb88e9b9f993a8e6ef4a  srep-0.2.3b-driver.efi
+b3860ee3645323d2b4addaf0db35586aa906037c1eb1c37d38d3c316382bc677  startup.nsh
+bf731bc1a7a7e9e0e07332d697ea6d3ce3c5bc6c6762a4066ec7c2c73ecbfed6  srep-usb-0.2.3b.zip
+
+How far these were verified
+---------------------------
+The 0.2.3b build above was run once, and the stick it produced was booted on the target
+machine: the Security page appears and SREP.log reports the patch applied. Four of the
+eight files are unchanged from the previous release and came out byte-identical to the
+hashes published for it - EFI/BOOT/BOOTX64.EFI, Oniguruma.efi, README.txt and
+SREP_Config.cfg - which is the reproducibility of the container demonstrated across
+separate runs on different source trees. The driver, the archive, and the two files that
+carry its filename (startup.nsh, LICENSES.txt) have not yet been rebuilt a second time.
+
+History of the driver hash, so the changes stay traceable:
+
+  ce2888d4...  builds that predate the stack-cookie pin. The "repeated" builds that
+               appeared to confirm this value had simply found the module already
+               compiled and copied it, so nothing was ever recompiled to test it.
+  b6d9ea25...  first reproducible build (cookie pinned), still carrying the fork's
+               Russian localisation. Confirmed by two consecutive from-scratch builds.
+  6002eb77...  same, with the localisation patched out at build time by the old
+               patch-srep.py. Built once. 10368 bytes smaller.
+  d0538b98...  tag 0.2.3b: the first build taken from the fork, where those changes are
+               commits rather than a patch, plus the memory-safety fixes found auditing
+               0.2.3a. Built once, booted on the target machine.
