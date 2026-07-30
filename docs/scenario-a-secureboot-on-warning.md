@@ -13,6 +13,13 @@ This is the **easy** case. You do **not** touch the BIOS, do **not** erase keys,
 do **not** need anything from `keys/`. Windows can write the update itself — you're
 only nudging a rollout that hasn't reached your device yet.
 
+> **Not `scripts\Enroll-SecureBootKeys.ps1`.** That script belongs to Scenario B and
+> only runs in **Setup Mode**, which your machine is not in — Secure Boot is on, so
+> `SetupMode = 0` and it will exit without writing anything. The only way to satisfy it
+> would be to erase your working key set in the BIOS first, which turns a healthy
+> machine into Scenario B, on a laptop whose Secure Boot menu is hidden. The registry
+> trigger below is both the simpler and the Microsoft-supported route; run it instead.
+
 ## Or just dismiss it
 
 The notice in Windows Security has a **Dismiss** button, and clicking it is a valid
