@@ -23,19 +23,24 @@ It covers two situations people hit after Windows updates started rolling out th
 
 ## ⚠️ Read before doing anything
 
-- **This is written for one specific machine: AORUS 15P XD, AMI BIOS `FB0A`
-  (`X5LVD`).** UEFI variable offsets, form IDs and the SREP pattern below are
-  extracted from *that* firmware. On any other model/version they will be
-  different, and blindly copying them can leave a machine unbootable. The
-  *concepts* transfer; the *exact bytes* do not.
+- **This is written for one specific firmware: AMI BIOS `FB0A` (`X5LVD`), as shipped
+  on the AORUS 15P XD.** What has to match is the **BIOS build, not the model badge**
+  — the same `FB0A` image ships on other 15P variants, which differ mainly in their
+  Nvidia chip. On a *different BIOS version* the UEFI variable offsets, form IDs and
+  the SREP pattern will all differ, and blindly copying them can leave a machine
+  unbootable. The *concepts* transfer; the *exact bytes* do not.
+  *Reported working unmodified on an **AORUS 15P YD** running the same `FB0A` BIOS,
+  by u/Maurarg, who checked the patterns against their own firmware first.*
+- **"Restore Factory Keys" and "Enroll all Factory Default keys" are the same trap.**
+  The first is on the hidden Secure Boot page, the second on the stock Security page
+  — the only one you can reach before unhiding anything. Both provision the factory
+  set, which on this laptop holds only the **2011** certificate. If your Windows boot
+  manager is already signed by **Windows UEFI CA 2023** (very likely by now), that set
+  cannot verify it and the machine fails to boot. Use the full 2011+2023 set from this
+  repository instead.
 - **Suspend BitLocker before changing Secure Boot state or keys**
   (`Suspend-BitLocker -MountPoint C: -RebootCount 1`). Otherwise you may be asked
   for your recovery key on the next boot. Know where your key is either way.
-- **"Restore Factory Keys" is a trap here.** On this laptop the factory defaults
-  contain only the **2011** certificate. If your Windows boot manager is already
-  signed by **Windows UEFI CA 2023** (very likely by now), restoring 2011-only keys
-  makes the machine fail Secure Boot. Use the full 2011+2023 set from this repo
-  instead.
 - Everything here is **fully reversible**: erasing Secure Boot keys in the BIOS
   returns you to Setup Mode, exactly where you started.
 - Provided **as-is, at your own risk**. See [LICENSE](LICENSE). The authors are not
@@ -129,6 +134,10 @@ newest DBX you can always re-fetch from upstream.
   posting the [r/gigabyte thread](https://www.reddit.com/r/gigabyte/comments/1ubzexr/aorus_15p_xd_secure_boot_help/)
   this repository grew out of, and everyone in it who worked out the 2011/2023
   boot-manager mismatch that pointed the way.
+- **[u/Maurarg](https://www.reddit.com/user/Maurarg/)** — for confirming the whole
+  procedure on an AORUS 15P YD with the same `FB0A` BIOS, having first checked the
+  config's patterns against that firmware. That report is what established the
+  BIOS build, not the model, as the thing that has to match.
 
 If you were involved and want different credit (or none), open an issue.
 

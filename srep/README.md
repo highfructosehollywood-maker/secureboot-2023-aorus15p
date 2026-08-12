@@ -11,9 +11,11 @@ it patches and why.
 
 ## ⚠️ Firmware-specific
 
-The byte pattern in this config is extracted from the **FB0A** AMITSE module. It will
-**not** match other models or BIOS versions and must not be used on them. On a
-different firmware you need a config built from *that* firmware's table.
+The byte pattern in this config is extracted from the **FB0A** AMITSE module, so what
+it is tied to is the **BIOS build rather than the model**: it has been reported working
+unmodified on an AORUS 15P YD running the same `FB0A`. On a **different BIOS version**
+it will **not** match and must not be used — there you need a config built from *that*
+firmware's table.
 
 The SREP binary itself is **not** firmware-specific — nothing about your machine is
 compiled into it. The same `.efi` works on any x64 UEFI system; only the config is
