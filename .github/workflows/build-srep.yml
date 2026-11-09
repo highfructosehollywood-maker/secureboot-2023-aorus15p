@@ -1,0 +1,36 @@
+
+name: Build SREP recovery USB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build recovery package
+        run: |
+          docker build -t srep-build:22.04 ./srep/build
+          mkdir -p "$RUNNER_TEMP/out"
+          docker volume create srep-edk2-build
+          docker run --rm \
+            -v srep-edk2-build:/build \
+            -v "$GITHUB_WORKSPACE/srep:/srep:ro" \
+            -v "$RUNNER_TEMP/out:/out" \
+            -e EDK_TAG=edk2-stable202502 \
+            -e SREP_TAG=0.2.3b \
+            -e SREP_REPO=https://github.com/djwinston/SmokelessRuntimeEFIPatcher.git \
+            srep-build:22.04 bash /srep/build/build.sh
+
+      - name: Upload recovery package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SREP-recovery-USB
+          path: |
+            ${{ runner.temp }}/out/srep-usb-*.zip
+            ${{ runner.temp }}/out/SHA256SUMS.txt
+            ${{ runner.temp }}/out/BUILD-INF
+            O.txt
